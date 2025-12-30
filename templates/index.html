@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiyat Takip v7.0</title>
+    <meta name="description"
+        content="Türkiye'nin en iyi fiyat takip uygulaması. Trendyol, Hepsiburada, Amazon fiyatlarını takip edin.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0f172a', surface: '#1e293b', border: '#334155',
+                        primary: '#6366f1', danger: '#ef4444', success: '#10b981', warning: '#f59e0b'
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
+
+        @keyframes slide-in {
+            from {
+                transform: translateX(-100%);
+            }
+
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .animate-slide-in {
+            animation: slide-in 0.3s ease-out;
+        }
+
+        /* Skeleton animation */
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* Mobile drawer backdrop */
+        .drawer-backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+
+<body class="bg-bg text-slate-300 flex h-screen overflow-hidden">
+
+    <!-- MOBILE MENU BUTTON -->
+    <button id="mobileMenuBtn" onclick="toggleMobileMenu()"
+        class="md:hidden fixed top-4 left-4 z-50 p-2 bg-surface border border-border rounded-lg shadow-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
+
+    <!-- MOBILE DRAWER BACKDROP -->
+    <div id="drawerBackdrop" onclick="toggleMobileMenu()" class="drawer-backdrop fixed inset-0 z-40 hidden md:hidden">
+    </div>
+
+    <!-- SIDEBAR (Desktop: always visible, Mobile: drawer) -->
+    <aside id="sidebar" class="w-64 bg-surface border-r border-border flex-col fixed md:relative h-full z-50 
+               -translate-x-full md:translate-x-0 transition-transform duration-300">
+        <div class="h-16 flex items-center px-6 border-b border-border">
+            <div class="w-3 h-3 bg-primary rounded-full mr-2"></div>
+            <span class="font-bold text-white tracking-wide">FiyatTakip</span>
+            <span class="ml-2 text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">v7.0</span>
+            <!-- Close button for mobile -->
+            <button onclick="toggleMobileMenu()" class="md:hidden ml-auto p-1 hover:bg-slate-700 rounded">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+            <a href="/" class="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary rounded-md">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                    </path>
+                </svg>
+                Kontrol Paneli
+            </a>
+            <div class="pt-4 pb-2 text-xs text-slate-500 uppercase px-3">İşlemler</div>
+            <a href="/scan-now"
+                class="flex items-center gap-3 px-3 py-2 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                    </path>
+                </svg>
+                Tümünü Tara
+            </a>
+            {% if is_scanning %}
+            <button id="stopBtn" onclick="stopScan()"
+                class="flex items-center gap-3 px-3 py-2 bg-danger/10 text-danger rounded-md animate-pulse w-full text-left">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+                <span id="stopBtnText">DURDUR</span>
+            </button>
+            {% endif %}
+            <a href="/reset" onclick="return confirm('Sistemi sıfırlayıp yeniden başlatmak istediğinize emin misiniz?')"
+                class="flex items-center gap-3 px-3 py-2 hover:bg-slate-800 rounded-md transition-colors text-slate-400 hover:text-success">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                    </path>
+                </svg>
+                Sistemi Sıfırla
+            </a>
+        </nav>
+        <div class="p-4 border-t border-border text-xs text-slate-500 text-center">Sunucu: Çevrimiçi</div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="flex-1 overflow-auto p-4 md:p-10 relative pt-16 md:pt-10">
+        <!-- TOP STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+            <div class="bg-surface border border-border p-4 md:p-6 rounded-xl shadow-sm">
+                <div class="text-slate-500 text-xs mb-1">TOPLAM ÜRÜN</div>
+                <div class="text-2xl md:text-3xl font-light text-white">{{ total }}</div>
+            </div>
+            <div class="bg-surface border border-border p-4 md:p-6 rounded-xl shadow-sm">
+                <div class="text-slate-500 text-xs mb-1">İNDİRİMLER</div>
+                <div class="text-2xl md:text-3xl font-light text-success">{{ discounts }}</div>
+            </div>
+            <div
+                class="bg-surface border border-border p-4 md:p-6 rounded-xl shadow-sm flex items-center justify-between">
+                <div>
+                    <div class="text-slate-500 text-xs mb-1">DURUM</div>
+                    <div
+                        class="text-lg md:text-xl font-medium {% if is_scanning %}text-warning{% else %}text-slate-300{% endif %}">
+                        {% if is_scanning %}Taranıyor...{% else %}Hazır{% endif %}
+                    </div>
+                </div>
+                {% if is_scanning %}
+                <a href="/stop-scan"
+                    class="bg-danger text-white px-3 py-2 rounded text-sm hover:bg-red-600 transition">DURDUR</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ADD BOX + SEARCH -->
+        <div class="flex flex-col md:flex-row gap-4 mb-6 md:mb-10">
+            <form id="addForm"
+                class="flex-1 bg-surface/50 border border-border p-1 rounded-lg shadow-lg focus-within:ring-2 ring-primary/50 transition">
+                <div class="flex">
+                    <input id="urlInput" name="url" required
+                        class="flex-1 bg-transparent px-4 md:px-6 py-3 md:py-4 text-white outline-none placeholder-slate-600 text-sm md:text-base"
+                        placeholder="Ürün veya kategori linki yapıştır...">
+                    <button type="submit" id="addBtn"
+                        class="bg-primary hover:bg-primary/80 text-white px-4 md:px-8 font-medium rounded-md m-1 transition flex items-center gap-2">
+                        <span id="addBtnText">EKLE</span>
+                        <svg id="addSpinner" class="w-4 h-4 spinner hidden" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+            <div class="bg-surface border border-border rounded-lg p-1 w-full md:w-72">
+                <input type="text" id="searchInput" onkeyup="filterProducts()" placeholder="Ürün ara..."
+                    class="w-full bg-transparent px-4 py-3 text-white outline-none placeholder-slate-600">
+            </div>
+        </div>
+
+        <!-- PRODUCT GRID -->
+        <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {% if products|length == 0 %}
+            <!-- EMPTY STATE -->
+            <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                <svg class="w-20 h-20 text-slate-700 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+                <h3 class="text-xl text-slate-400 mb-2">Henüz Ürün Yok</h3>
+                <p class="text-slate-600 text-sm max-w-md">Yukarıdaki kutuya bir ürün veya kategori linki yapıştırarak
+                    takibe başlayın.</p>
+            </div>
+            {% else %}
+            {% for p in products %}
+            <div class="product-card bg-surface border border-border rounded-xl group hover:border-slate-500 transition relative overflow-hidden flex flex-col"
+                data-name="{{ p.name|lower }}" data-id="{{ p.id }}">
+                <!-- Status Indicator -->
+                <div class="absolute top-2 left-2 z-10">
+                    {% if p.status == 'active' %}
+                    <span class="w-2 h-2 bg-success rounded-full inline-block" title="Güncel"></span>
+                    {% elif p.status == 'processing' %}
+                    <span class="w-2 h-2 bg-warning rounded-full inline-block animate-pulse" title="İşleniyor"></span>
+                    {% elif p.status == 'error' %}
+                    <span class="w-2 h-2 bg-danger rounded-full inline-block" title="Hata"></span>
+                    {% else %}
+                    <span class="w-2 h-2 bg-slate-500 rounded-full inline-block" title="Bekliyor"></span>
+                    {% endif %}
+                </div>
+
+                <!-- Actions -->
+                <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition z-10">
+                    <button
+                        class="chart-btn p-2 bg-slate-800 rounded-full hover:bg-primary hover:text-white transition shadow">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z">
+                            </path>
+                        </svg>
+                    </button>
+                    <a href="/delete/{{ p.id }}" onclick="return confirm('Bu ürünü silmek istediğinize emin misiniz?')"
+                        class="p-2 bg-slate-800 rounded-full hover:bg-danger hover:text-white transition shadow">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                            </path>
+                        </svg>
+                    </a>
+                </div>
+                <a href="/favorite/{{ p.id }}"
+                    class="absolute top-8 left-2 z-10 p-1 {% if p.is_favorite %}text-danger{% else %}text-slate-600 hover:text-danger{% endif %}">
+                    <svg class="w-5 h-5" fill="{% if p.is_favorite %}currentColor{% else %}none{% endif %}"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z">
+                        </path>
+                    </svg>
+                </a>
+
+                <!-- Img -->
+                <div class="h-40 md:h-48 p-4 md:p-6 bg-slate-900/50 flex items-center justify-center relative">
+                    {% if p.image_url %}
+                    <img src="{{ p.image_url }}" alt="{{ p.name|e }}"
+                        class="max-h-full object-contain hover:scale-105 transition duration-500"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <span class="text-slate-700 text-2xl hidden">📦</span>
+                    {% else %}
+                    <span class="text-slate-700 text-2xl">📦</span>
+                    {% endif %}
+                </div>
+
+                <!-- Info -->
+                <div class="p-4 md:p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                        <a href="{{ p.url }}" target="_blank"
+                            class="text-sm text-slate-300 hover:text-primary transition line-clamp-2 mb-2">{{ p.name
+                            }}</a>
+
+                        {% if p.status == 'error' and p.error_message %}
+                        <div class="text-[10px] text-danger bg-danger/10 p-1 rounded mb-2 border border-danger/20">
+                            {{ p.error_message }}
+                        </div>
+                        {% endif %}
+
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-lg text-white">{{ "{:,.2f}".format(p.current_price) }}</span>
+                            <span class="text-xs text-slate-500">TL</span>
+                            {% if p.current_price < p.lowest_price %} <span class="text-success text-sm"
+                                title="En düşük fiyat!">↓</span>
+                                {% elif p.current_price > p.lowest_price * 1.05 %}
+                                <span class="text-danger text-sm" title="Fiyat artmış">↑</span>
+                                {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-4 flex justify-between">
+                        <span>{{ p.last_checked.strftime('%d.%m %H:%M') }}</span>
+                        <span>Min: {{ "{:,.0f}".format(p.lowest_price) }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- PAGINATION -->
+        {% if total_pages > 1 %}
+        <div class="flex justify-center items-center gap-2 mt-10 mb-6">
+            {% if current_page > 1 %}
+            <a href="/?page={{ current_page - 1 }}"
+                class="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-slate-700 transition">
+                &larr; Önceki
+            </a>
+            {% endif %}
+
+            <div class="flex gap-1">
+                {% for page_num in range(1, total_pages + 1) %}
+                {% if page_num == current_page %}
+                <span class="px-4 py-2 bg-primary text-white rounded-lg">{{ page_num }}</span>
+                {% elif page_num == 1 or page_num == total_pages or (page_num >= current_page - 2 and page_num <=
+                    current_page + 2) %} <a href="/?page={{ page_num }}"
+                    class="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-slate-700 transition">{{
+                    page_num }}</a>
+                    {% elif page_num == current_page - 3 or page_num == current_page + 3 %}
+                    <span class="px-2 py-2 text-slate-500">...</span>
+                    {% endif %}
+                    {% endfor %}
+            </div>
+
+            {% if current_page < total_pages %} <a href="/?page={{ current_page + 1 }}"
+                class="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-slate-700 transition">
+                Sonraki &rarr;
+                </a>
+                {% endif %}
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- CHART MODAL -->
+    <div id="chartModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center"
+        onclick="closeModal()">
+        <div class="bg-surface border border-border p-6 rounded-xl w-full max-w-3xl m-4 shadow-2xl"
+            onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-lg font-medium text-white truncate max-w-lg">Fiyat Analizi</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <!-- Skeleton Loading State -->
+            <div id="chartSkeleton" class="h-64 skeleton rounded-lg"></div>
+            <div id="chartContainer" class="h-64 hidden"><canvas id="priceChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm"></div>
+
+    <!-- Product Names Data (Safe JSON) -->
+    <script id="productNamesData" type="application/json">
+        {{ product_names_json | safe }}
+    </script>
+
+    <script>
+        let chart = null;
+        // Parse product names from JSON block
+        const productNames = JSON.parse(document.getElementById('productNamesData').textContent);
+
+        // === MOBILE MENU ===
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('drawerBackdrop');
+            const isOpen = !sidebar.classList.contains('-translate-x-full');
+
+            if (isOpen) {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            } else {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            }
+        }
+
+        // === CHART MODAL ===
+        function openModal(id) {
+            const modal = document.getElementById('chartModal');
+            const skeleton = document.getElementById('chartSkeleton');
+            const container = document.getElementById('chartContainer');
+
+            modal.classList.remove('hidden');
+            document.getElementById('modalTitle').innerText = productNames[id] || 'Fiyat Analizi';
+
+            // Show skeleton, hide chart
+            skeleton.classList.remove('hidden');
+            container.classList.add('hidden');
+
+            fetch('/history/' + id)
+                .then(res => res.json())
+                .then(data => {
+                    try {
+                        if (chart) {
+                            chart.destroy();
+                            chart = null;
+                        }
+                        chart = new Chart(document.getElementById('priceChart'), {
+                            type: 'line',
+                            data: {
+                                labels: data.labels,
+                                datasets: [{
+                                    label: 'Fiyat (TL)',
+                                    data: data.prices,
+                                    borderColor: '#6366f1',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    backgroundColor: 'rgba(99,102,241,0.1)',
+                                    tension: 0.3
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    x: { display: true, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                                },
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                        // Hide skeleton, show chart
+                        skeleton.classList.add('hidden');
+                        container.classList.remove('hidden');
+                    } catch (err) {
+                        console.error('Chart creation error:', err);
+                        if (chart) { chart.destroy(); chart = null; }
+                    }
+                })
+                .catch(err => {
+                    console.error('Fetch error:', err);
+                    showToast('Grafik yüklenemedi', 'error');
+                    closeModal();
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('chartModal').classList.add('hidden');
+        }
+
+        // === SEARCH/FILTER ===
+        function filterProducts() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.product-card').forEach(card => {
+                const name = card.getAttribute('data-name');
+                card.style.display = name.includes(query) ? '' : 'none';
+            });
+        }
+
+        // === STOP SCAN ===
+        function stopScan() {
+            const btn = document.getElementById('stopBtn');
+            const btnText = document.getElementById('stopBtnText');
+            if (btn && btnText) {
+                btnText.innerText = 'Durduruluyor...';
+                btn.classList.remove('animate-pulse');
+                btn.disabled = true;
+            }
+            showToast('Tarama durduruluyor...', 'info');
+            setTimeout(function () {
+                window.location.href = '/stop-scan';
+            }, 500);
+        }
+
+        // === TOAST NOTIFICATIONS ===
+        function showToast(message, type) {
+            type = type || 'info';
+            const colors = { success: 'bg-success', error: 'bg-danger', info: 'bg-primary', warning: 'bg-warning' };
+            const toast = document.createElement('div');
+            toast.className = colors[type] + ' text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in';
+            toast.innerText = message;
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(function () { toast.remove(); }, 4000);
+        }
+
+        // === ADD FORM (AJAX) ===
+        document.getElementById('addForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const urlInput = document.getElementById('urlInput');
+            const addBtn = document.getElementById('addBtn');
+            const addBtnText = document.getElementById('addBtnText');
+            const addSpinner = document.getElementById('addSpinner');
+
+            const url = urlInput.value.trim();
+            if (!url) return;
+
+            // UI: Show loading
+            addBtn.disabled = true;
+            addBtnText.textContent = 'Ekleniyor...';
+            addSpinner.classList.remove('hidden');
+
+            try {
+                const formData = new FormData();
+                formData.append('url', url);
+
+                const response = await fetch('/add', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast(data.message || 'Ürün arka planda işleniyor', 'success');
+                    urlInput.value = '';
+                } else {
+                    // 400/500 error - show error message
+                    showToast(data.detail || 'Bir hata oluştu', 'error');
+                }
+            } catch (err) {
+                showToast('Bağlantı hatası: ' + err.message, 'error');
+            } finally {
+                // UI: Reset
+                addBtn.disabled = false;
+                addBtnText.textContent = 'EKLE';
+                addSpinner.classList.add('hidden');
+            }
+        });
+
+        // === INIT ===
+        window.addEventListener('load', function () {
+            // Event delegation for chart buttons
+            document.querySelectorAll('.chart-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const card = this.closest('.product-card');
+                    if (card && card.dataset.id) {
+                        openModal(card.dataset.id);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

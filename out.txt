@@ -1,0 +1,18 @@
+C:\Users\Ahmed\Desktop\Antigravity Projeler\web sitesi - Kopya - Kopya\run.py:8: DeprecationWarning: 'asyncio.WindowsProactorEventLoopPolicy' is deprecated and slated for removal in Python 3.16
+  asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+C:\Users\Ahmed\Desktop\Antigravity Projeler\web sitesi - Kopya - Kopya\run.py:8: DeprecationWarning: 'asyncio.set_event_loop_policy' is deprecated and slated for removal in Python 3.16
+  asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+INFO:     Started server process [9100]
+INFO:     Waiting for application startup.
+15:35:01 | INFO     | \U0001f680 Playwright ba■lat²l²yor...
+15:35:02 | INFO     | \u2705 Browser haz²r (Async).
+15:35:02 | INFO     | \u2705 Server ba■lat²ld².
+15:35:02 | INFO     | Adding job tentatively -- it will be properly scheduled when the scheduler starts
+15:35:02 | INFO     | Added job "update_all_products" to job store "default"
+15:35:02 | INFO     | Scheduler started
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8000): [winerror 10048] normal olarak her yuva adresi (ileti■im kural²/a­ adresi/ba­lant² noktas²) iin yaln²zca bir kullan²ma izin veriliyor
+INFO:     Waiting for application shutdown.
+15:35:02 | INFO     | \U0001f6d1 Browser durduruldu.
+15:35:02 | INFO     | \U0001f6d1 Server kapat²ld².
+INFO:     Application shutdown complete.

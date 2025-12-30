@@ -24,6 +24,9 @@ python-multipart==0.0.20
 # Background Task Scheduler
 apscheduler==3.11.1
 
+# Logging
+colorlog==6.8.2
+
 # ==========================================
 # OPTIONAL DEPENDENCIES (Not actively used)
 # ==========================================

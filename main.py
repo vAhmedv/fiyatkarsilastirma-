@@ -61,8 +61,8 @@ logger.addHandler(queue_handler)
 # Capture scraper logs
 logging.getLogger("FiyatTakip.Scraper").addHandler(queue_handler)
 
-if sys.platform == 'win32':
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+# if sys.platform == 'win32':
+#     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI, Request, Form, Depends, BackgroundTasks, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -124,24 +124,31 @@ def set_scanning_status(value: bool):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
-    # Scraper async başlatma
-    await start_browser()
-    logger.info("✅ Server başlatıldı.")
-    
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(update_all_products, 'interval', hours=SCAN_INTERVAL_HOURS) 
-    scheduler.start()
-    yield
-    
-    # Graceful shutdown
-    if get_scanning_status():
-        logger.info("⏳ Tarama devam ediyor, durduruluyor...")
-        GLOBAL_STOP_EVENT.set()
-        await asyncio.sleep(2)
-    
-    await stop_browser()
-    logger.info("🛑 Server kapatıldı.")
+    try:
+        create_db_and_tables()
+        # Scraper async başlatma
+        await start_browser()
+        logger.info("✅ Server başlatıldı.")
+        
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(update_all_products, 'interval', hours=SCAN_INTERVAL_HOURS) 
+        scheduler.start()
+        yield
+    except Exception as e:
+        logger.critical(f"Startup Failed: {e}")
+        raise
+    finally:
+        # Graceful shutdown
+        try:
+            if get_scanning_status():
+                logger.info("⏳ Tarama devam ediyor, durduruluyor...")
+                GLOBAL_STOP_EVENT.set()
+                await asyncio.sleep(2)
+            
+            await stop_browser()
+            logger.info("🛑 Server kapatıldı.")
+        except Exception as e:
+            logger.error(f"Shutdown error: {e}")
 
 app = FastAPI(lifespan=lifespan)
 # templates = Jinja2Templates(directory="templates")

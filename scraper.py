@@ -155,13 +155,15 @@ async def extract_product_info(page: Page, url: str) -> ScrapedData:
                 p = offers.get("price") or offers.get("lowPrice") or offers.get("highPrice")
                 if p: data.price = float(p)
                 img = jd.get("image")
-                if isinstance(img, list): 
-                    img = img[0] if img else None
+                # Liste ise ilk elemanı al
+                if isinstance(img, list) and img: 
+                    img = img[0]
+                # Dict ise contentUrl veya url'yi çıkar
                 if isinstance(img, dict): 
                     data.image_url = img.get("contentUrl") or img.get("url") or ""
                 elif isinstance(img, str): 
                     data.image_url = img
-                # Ensure image_url is always a string
+                # Son kontrol: image_url mutlaka string olmalı
                 if not isinstance(data.image_url, str):
                     data.image_url = ""
                 if data.name and data.price > 0:

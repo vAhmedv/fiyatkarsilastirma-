@@ -29,11 +29,11 @@ class Product(SQLModel, table=True):
     target_price: float = Field(default=0.0)
     status: str = Field(default=ProductStatus.PENDING)
     error_message: Optional[str] = None
-    price_history: List["PriceHistory"] = Relationship(back_populates="product")
+    price_history: List["PriceHistory"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class PriceHistory(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    product_id: int = Field(foreign_key="product.id")
+    product_id: int = Field(foreign_key="product.id", ondelete="CASCADE")
     price: float
     timestamp: datetime = Field(default_factory=datetime.now)
     product: Optional[Product] = Relationship(back_populates="price_history")

@@ -11,7 +11,7 @@ from playwright.async_api import async_playwright, Page, BrowserContext, Browser
 logger = logging.getLogger("FiyatTakip.Scraper")
 from config import USER_AGENTS, PAGE_TIMEOUT, BATCH_SIZE
 
-MAX_CONCURRENCY = 20  # Ryzen 7600 Gücü
+MAX_CONCURRENCY = 20
 
 SELECTOR_MAP = {
     "trendyol.com": {
@@ -87,7 +87,7 @@ class ValidationService:
                     break
         if not data.image_url: data.image_url = DEFAULT_IMAGE_URL
         if errors:
-            data.is_valid = False, 
+            data.is_valid = False 
             data.error_message = "; ".join(errors)
         else:
             data.is_valid = True
@@ -104,9 +104,14 @@ class URLAnalyzer:
     def analyze(cls, url: str) -> Tuple[str, str]:
         domain = cls.get_domain(url)
         if not domain: return ("unknown", "")
-        if any(ind in url.lower() for ind in ["-p-", "/dp/", "/urun/", "-fiyati,", "/product/"]): return ("product", domain)
-        if any(ind in url.lower() for ind in ["/sr?", "/ara?", "/kategori/", "/category/", "?q=", "?src="]): return ("category", domain)
-        return ("product", domain)
+        is_product = False
+        if "trendyol.com" in domain and "-p-" in url: is_product = True
+        elif "hepsiburada.com" in domain and ("-p-" in url or "-pm-" in url): is_product = True
+        elif "amazon" in domain and "/dp/" in url: is_product = True
+        elif "n11.com" in domain and ("/urun/" in url or "/p/" in url): is_product = True
+        elif "akakce.com" in domain and ".html" in url and "-fiyati," in url: is_product = True
+        if is_product: return ("product", domain)
+        return ("category", domain)
 
 def clean_price(price_text: str) -> float:
     if not price_text: return 0.0
@@ -150,67 +155,53 @@ async def extract_product_info(page: Page, url: str) -> ScrapedData:
                 p = offers.get("price") or offers.get("lowPrice") or offers.get("highPrice")
                 if p: data.price = float(p)
                 img = jd.get("image")
-                if isinstance(img, list): data.image_url = img[0]
-                elif isinstance(img, dict): data.image_url = img.get("url", "")
-                elif isinstance(img, str): data.image_url = img
+                if isinstance(img, list): 
+                    img = img[0] if img else None
+                if isinstance(img, dict): 
+                    data.image_url = img.get("contentUrl") or img.get("url") or ""
+                elif isinstance(img, str): 
+                    data.image_url = img
+                # Ensure image_url is always a string
+                if not isinstance(data.image_url, str):
+                    data.image_url = ""
                 if data.name and data.price > 0:
                     data.source = "jsonld"
                     return ValidationService.validate(data)
             except: continue
     except: pass
-    
     if domain:
         sels = SELECTOR_MAP.get(domain, {})
         for s in sels.get("name", []):
-            try:
-                el = await page.query_selector(s)
-                if el: data.name = clean_product_name(await el.inner_text())
-                if data.name: break
+            try: el = await page.query_selector(s); data.name = clean_product_name(await el.inner_text()) if el else data.name; break
             except: pass
         for s in sels.get("price", []):
-            try:
-                el = await page.query_selector(s)
-                if el: data.price = clean_price(await el.inner_text())
-                if data.price > 0: break
+            try: el = await page.query_selector(s); data.price = clean_price(await el.inner_text()) if el else data.price; break
             except: pass
         if not data.image_url:
             for s in sels.get("image", []):
-                try:
-                    el = await page.query_selector(s)
-                    if el: data.image_url = await el.get_attribute("src") or ""
-                    if data.image_url: break
+                try: el = await page.query_selector(s); data.image_url = await el.get_attribute("src") if el else data.image_url; break
                 except: pass
-    
     if not data.name:
         try: data.name = clean_product_name(await page.title())
         except: data.name = "Bilinmeyen Ürün"
-        
     data.source = "css/fallback"
     return ValidationService.validate(data)
 
 class BrowserManager:
     def __init__(self):
-        self.playwright = None
-        self.browser = None
-        self.context = None
-        self.request_count = 0
-        self._lock = asyncio.Lock()
-    
+        self.playwright = None; self.browser = None; self.context = None; self.request_count = 0; self._lock = asyncio.Lock()
     async def start(self):
         if not self.playwright:
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,
-                args=["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-gpu"]
-            )
+            self.browser = await self.playwright.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled", "--no-sandbox"])
             await self._refresh_context()
-
     async def stop(self):
-        if self.context: await self.context.close()
-        if self.browser: await self.browser.close()
-        if self.playwright: await self.playwright.stop()
-        self.playwright = None
-
+        try:
+            if self.context: await self.context.close()
+            if self.browser: await self.browser.close()
+            if self.playwright: await self.playwright.stop()
+        except: pass
+        finally: self.playwright = None
     async def _refresh_context(self):
         if self.context: await self.context.close()
         self.context = await self.browser.new_context(user_agent=random.choice(USER_AGENTS))
@@ -219,7 +210,6 @@ class BrowserManager:
             if request.resource_type in ["image", "media", "font", "stylesheet"]: await route.abort()
             else: await route.continue_()
         await self.context.route("**/*", route_handler)
-
     async def get_context(self) -> BrowserContext:
         async with self._lock:
             self.request_count += 1
@@ -243,10 +233,8 @@ async def scrape_single_url(url: str, context: Optional[BrowserContext] = None) 
              try: await page.wait_for_selector(SELECTOR_MAP[dom]["price"][0], timeout=3000)
              except: pass
         data = await extract_product_info(page, url)
-    except Exception as e:
-        data = ScrapedData(url=url, error_message=str(e))
-    finally:
-        await page.close()
+    except Exception as e: data = ScrapedData(url=url, error_message=str(e))
+    finally: await page.close()
     return data
 
 async def get_products_batch(urls: List[str], batch_size: int = BATCH_SIZE) -> List[Dict[str, Any]]:
@@ -264,34 +252,28 @@ async def get_product_data(url: str) -> Dict[str, Any]:
     return {"url": d.url, "name": d.name, "price": d.price, "image_url": d.image_url, "is_valid": d.is_valid}
 
 async def discover_links(category_url: str, max_pages: int = 5) -> List[str]:
-    """AKILLI SAYFALAMA: URL Manipülasyonu ile çok daha hızlı"""
     url_type, domain = URLAnalyzer.analyze(category_url)
     if url_type == "product": return [category_url]
     if not domain: return []
-    
     found = set()
     manager = get_manager()
     context = await manager.get_context()
     page = await context.new_page()
-    base_url = category_url.split("?")[0]
-    
     try:
         for page_num in range(1, max_pages + 1):
             target_url = category_url
             if page_num > 1:
-                if "trendyol.com" in domain: target_url = f"{base_url}?pi={page_num}"
-                elif "hepsiburada.com" in domain: target_url = f"{base_url}?sayfa={page_num}"
-                elif "n11.com" in domain: target_url = f"{base_url}?pg={page_num}"
-                elif "akakce.com" in domain: target_url = f"{base_url}?p={page_num}"
-                elif "amazon.com" in domain: target_url = f"{base_url}&page={page_num}"
-            
+                separator = "&" if "?" in category_url else "?"
+                if "trendyol.com" in domain: target_url = f"{category_url}{separator}pi={page_num}"
+                elif "hepsiburada.com" in domain: target_url = f"{category_url}{separator}sayfa={page_num}"
+                elif "n11.com" in domain: target_url = f"{category_url}{separator}pg={page_num}"
+                elif "akakce.com" in domain: target_url = f"{category_url}{separator}p={page_num}"
+                elif "amazon.com" in domain: target_url = f"{category_url}{separator}page={page_num}"
             logger.info(f"🕷️ Sayfa {page_num}: {target_url}")
             try:
                 await page.goto(target_url, timeout=15000, wait_until="domcontentloaded")
-                # Scroll yerine sadece bir kere dibe vur
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 await asyncio.sleep(0.5)
-                
                 hrefs = await page.evaluate("() => Array.from(document.querySelectorAll('a')).map(a => a.href)")
                 regex = PRODUCT_URL_PATTERNS.get(domain)
                 count = 0
@@ -299,13 +281,9 @@ async def discover_links(category_url: str, max_pages: int = 5) -> List[str]:
                     if not href or (domain and domain not in href): continue
                     is_p = False
                     if regex and regex.search(href): is_p = True
-                    elif not regex and len(href)>25 and any(x in href for x in ["-p-", "urun", "dp/", ".html"]): is_p = True
-                    
-                    if is_p and href not in found:
-                        found.add(href)
-                        count += 1
+                    elif not regex and len(href)>20 and any(x in href for x in ["-p-", "urun", "dp/", ".html"]): is_p = True
+                    if is_p and href not in found: found.add(href); count += 1
                 if count == 0 and page_num > 1: break
             except: continue
-    finally:
-        await page.close()
+    finally: await page.close()
     return list(found)

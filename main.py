@@ -1,17 +1,16 @@
 import asyncio
-import sys
 import threading
 import logging
 import json
-from queue import Queue, Empty
+from typing import List
 from urllib.parse import urlparse
-from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import colorlog
 from fastapi import FastAPI, Request, Form, Depends, BackgroundTasks, Query, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from sqlmodel import Session, select, func
+from sqlalchemy import delete
 from contextlib import asynccontextmanager
 
 from database import create_db_and_tables, get_session, engine
@@ -20,31 +19,29 @@ from scraper import get_product_data, get_products_batch, discover_links, start_
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from config import ITEMS_PER_PAGE, ALLOWED_DOMAINS, SCAN_INTERVAL_HOURS
 
-# LOGGING
 log_queue = asyncio.Queue()
 class QueueHandler(logging.Handler):
     def emit(self, record):
         try:
             msg = self.format(record)
-            if log_queue.qsize() > 100:
-                try: log_queue.get_nowait()
-                except: pass
+            if log_queue.qsize() > 100: log_queue.get_nowait()
             log_queue.put_nowait(msg)
-        except: self.handleError(record)
+        except: pass
 
 handler = colorlog.StreamHandler()
-handler.setFormatter(colorlog.ColoredFormatter(
-    '%(log_color)s%(asctime)s | %(levelname)-8s | %(message)s',
-    datefmt='%H:%M:%S',
-    reset=True,
-    log_colors={'DEBUG':'cyan', 'INFO':'green', 'WARNING':'yellow', 'ERROR':'red', 'CRITICAL':'red,bg_white'}
-))
+handler.setFormatter(colorlog.ColoredFormatter('%(log_color)s%(asctime)s | %(levelname)-8s | %(message)s', datefmt='%H:%M:%S', reset=True, log_colors={'DEBUG':'cyan', 'INFO':'green', 'WARNING':'yellow', 'ERROR':'red', 'CRITICAL':'red,bg_white'}))
 logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger("FiyatTakip")
 queue_handler = QueueHandler()
 queue_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(message)s', datefmt='%H:%M:%S'))
 logger.addHandler(queue_handler)
 logging.getLogger("FiyatTakip.Scraper").addHandler(queue_handler)
+
+# Uvicorn loglarını da web terminaline gönder
+uvicorn_queue_handler = QueueHandler()
+uvicorn_queue_handler.setFormatter(logging.Formatter('%(message)s'))
+logging.getLogger("uvicorn.access").addHandler(uvicorn_queue_handler)
+logging.getLogger("uvicorn.error").addHandler(uvicorn_queue_handler)
 
 GLOBAL_STOP_EVENT = threading.Event()
 IS_SCANNING = False
@@ -68,6 +65,32 @@ def set_scanning_status(value: bool):
     global IS_SCANNING
     with IS_SCANNING_LOCK: IS_SCANNING = value
 
+async def cleanup_old_data():
+    """30 günden eski fiyat geçmişini temizler."""
+    logger.info("🧹 Veritabanı temizliği yapılıyor...")
+    def _clean():
+        with Session(engine) as session:
+            cutoff = datetime.now() - timedelta(days=30)
+            stmt = delete(PriceHistory).where(PriceHistory.timestamp < cutoff)
+            session.execute(stmt)
+            session.commit()
+            logger.info("✅ Eski veriler temizlendi.")
+    await asyncio.to_thread(_clean)
+
+async def check_pending_items():
+    """Kuyrukta bekleyen (PENDING) ürün var mı bakar ve varsa işler."""
+    logger.info("🔄 Bekleyen ürünler kontrol ediliyor...")
+    def _get_pending():
+        with Session(engine) as session:
+            return session.exec(select(Product.url).where(Product.status == ProductStatus.PENDING)).all()
+    
+    pending_urls = await asyncio.to_thread(_get_pending)
+    if pending_urls:
+        logger.info(f"⚡ {len(pending_urls)} adet bekleyen ürün bulundu, işleniyor...")
+        await process_bulk_list(pending_urls, is_drain_mode=True)
+    else:
+        logger.info("✅ Tüm kuyruk temiz.")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -76,6 +99,7 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Server başlatıldı.")
         scheduler = AsyncIOScheduler()
         scheduler.add_job(update_all_products, 'interval', hours=SCAN_INTERVAL_HOURS) 
+        scheduler.add_job(cleanup_old_data, 'interval', days=1) 
         scheduler.start()
         yield
     except Exception as e:
@@ -94,13 +118,16 @@ app = FastAPI(lifespan=lifespan)
 try: templates = Jinja2Templates(directory="templates")
 except: logger.warning("Templates directory not found!")
 
-async def process_bulk_list(urls: List[str]):
-    if get_scanning_status(): return
+async def process_bulk_list(urls: List[str], is_drain_mode: bool = False):
+    if not is_drain_mode and get_scanning_status(): 
+        logger.info("⚠️ Sistem meşgul, ürünler PENDING modunda sıraya alındı.")
+        return
+
     set_scanning_status(True)
     GLOBAL_STOP_EVENT.clear()
-    BATCH_SIZE = 10 
+    BATCH_SIZE = 20
     try:
-        logger.info(f"📦 Bulk Task: {len(urls)} URL (Batch: {BATCH_SIZE})")
+        logger.info(f"📦 Toplu Tarama Başladı: {len(urls)} ürün")
         for batch_start in range(0, len(urls), BATCH_SIZE):
             if GLOBAL_STOP_EVENT.is_set(): break
             batch_urls = urls[batch_start:batch_start + BATCH_SIZE]
@@ -133,13 +160,16 @@ async def process_bulk_list(urls: List[str]):
             except asyncio.TimeoutError: logger.warning("⚠️ Batch timeout")
             except Exception as e: logger.error(f"❌ Batch Error: {e}")
             if not GLOBAL_STOP_EVENT.is_set(): await asyncio.sleep(0.5)
-    finally: set_scanning_status(False)
+    finally:
+        set_scanning_status(False)
+        if not is_drain_mode:
+             asyncio.create_task(check_pending_items())
 
 async def update_all_products():
     if get_scanning_status(): return
     set_scanning_status(True)
     GLOBAL_STOP_EVENT.clear()
-    BATCH_SIZE = 10
+    BATCH_SIZE = 20
     try:
         def _fetch():
             with Session(engine) as session:
@@ -179,7 +209,9 @@ async def update_all_products():
                 await asyncio.to_thread(_update, batch, url_map)
             except: pass
             if not GLOBAL_STOP_EVENT.is_set(): await asyncio.sleep(0.5)
-    finally: set_scanning_status(False)
+    finally:
+        set_scanning_status(False)
+        asyncio.create_task(check_pending_items())
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, page: int = Query(1, ge=1), session: Session = Depends(get_session)):
@@ -195,6 +227,10 @@ async def home(request: Request, page: int = Query(1, ge=1), session: Session = 
         "is_scanning": get_scanning_status(), "current_page": page, "total_pages": total_pages, 
         "items_per_page": ITEMS_PER_PAGE, "product_names_json": p_names
     })
+
+@app.get("/terminal", response_class=HTMLResponse)
+async def terminal_page(request: Request):
+    return templates.TemplateResponse("terminal.html", {"request": request})
 
 @app.get("/stream-logs")
 async def stream_logs(request: Request):
@@ -214,7 +250,6 @@ async def add(request: Request, bg: BackgroundTasks, url: str = Form(...), sessi
     try:
         utype, domain = URLAnalyzer.analyze(url)
         if utype == "category":
-            # KATEGORİ KAYDI
             ex_cat = session.exec(select(Category).where(Category.url == url)).first()
             if not ex_cat:
                 session.add(Category(url=url, domain=domain, name=f"{domain} Kategori"))
@@ -250,12 +285,10 @@ async def stop_scan():
     return RedirectResponse("/", status_code=303)
 
 @app.get("/delete/{pid}")
-async def delete(pid: int, session: Session = Depends(get_session)):
+async def delete_product(pid: int, session: Session = Depends(get_session)):
     try:
-        hist = session.exec(select(PriceHistory).where(PriceHistory.product_id == pid)).all()
-        for h in hist: session.delete(h)
         p = session.get(Product, pid)
-        if p: session.delete(p)
+        if p: session.delete(p)  # Cascade siler
         session.commit()
     except: pass
     return RedirectResponse("/", status_code=303)

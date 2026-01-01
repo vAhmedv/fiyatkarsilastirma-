@@ -1,0 +1,152 @@
+{
+    "trendyol.com": {
+        "price": [
+            ".prc-dsc",
+            ".product-price-container span",
+            "[data-testid='price']",
+            ".pr-bx-pr-dsc"
+        ],
+        "name": [
+            ".pr-new-br",
+            "h1.pr-nm",
+            "h1",
+            "[data-testid='product-title']"
+        ],
+        "image": [
+            ".base-product-image img",
+            "img.ph-gl-img",
+            "[data-testid='product-image'] img"
+        ]
+    },
+    "hepsiburada.com": {
+        "price": [
+            "#originalPrice",
+            "[data-test-id='price-current-price']",
+            "span[data-bind='markupText']",
+            ".product-price"
+        ],
+        "name": [
+            "h1#product-name",
+            "h1[data-test-id='title']",
+            "h1",
+            ".product-name"
+        ],
+        "image": [
+            "img.product-image",
+            "img[data-test-id='product-image']",
+            ".product-image img"
+        ]
+    },
+    "amazon.com.tr": {
+        "price": [
+            ".a-price-whole",
+            "#priceblock_ourprice",
+            "#priceblock_dealprice",
+            "#corePrice_feature_div .a-offscreen"
+        ],
+        "name": [
+            "#productTitle",
+            "h1 span#productTitle",
+            "#title span"
+        ],
+        "image": [
+            "#landingImage",
+            "#imgBlkFront",
+            "#main-image"
+        ]
+    },
+    "n11.com": {
+        "price": [
+            ".newPrice ins",
+            ".price ins",
+            ".proMainPrice ins",
+            ".unf-p-new-price"
+        ],
+        "name": [
+            ".proName",
+            "h1.pro-name",
+            "h1",
+            ".unf-p-name"
+        ],
+        "image": [
+            ".imgObj img",
+            ".product-image img",
+            ".unf-p-img img"
+        ]
+    },
+    "akakce.com": {
+        "price": [
+            ".pb_v8 .pt_v8",
+            ".pt_v8",
+            "span.pt_v8",
+            ".fiyat_v8",
+            "[data-price]"
+        ],
+        "name": [
+            "h1",
+            ".pr_v8 h1",
+            "h1.pn_v8",
+            ".product-title"
+        ],
+        "image": [
+            ".img_w img",
+            ".img_v8 img",
+            "[data-img] img",
+            ".product-image img"
+        ]
+    },
+    "cimri.com": {
+        "price": [
+            "[data-testid='product-price']",
+            ".product-price",
+            "span[class*='ProductCard_price']",
+            ".price-value"
+        ],
+        "name": [
+            "h1",
+            "[data-testid='product-title']",
+            "h1[class*='ProductInfo']",
+            ".product-title"
+        ],
+        "image": [
+            "[data-testid='product-image'] img",
+            ".product-image img",
+            ".main-image img"
+        ]
+    },
+    "epey.com": {
+        "price": [
+            ".fiyat.fiyat_sat",
+            ".min-price",
+            ".urun-fiyati",
+            ".price-min"
+        ],
+        "name": [
+            "h1.baslik",
+            "h1.urun-baslik",
+            "h1",
+            ".product-name"
+        ],
+        "image": [
+            ".buyuk_resim img",
+            ".product-image img",
+            ".main-img img"
+        ]
+    },
+    "product_url_patterns": {
+        "akakce.com": "-fiyati,\\d+\\.html$",
+        "trendyol.com": "-p-\\d+",
+        "hepsiburada.com": "-pm?-\\d+$|/[a-z0-9-]+-p-[A-Z0-9]+$",
+        "amazon.com.tr": "/dp/[A-Z0-9]+",
+        "n11.com": "/urun/|/p/\\d+",
+        "cimri.com": "/[a-z0-9-]+-\\d+$",
+        "epey.com": "/[a-z0-9-]+/[a-z0-9-]+$"
+    },
+    "pagination_params": {
+        "trendyol.com": "pi",
+        "hepsiburada.com": "sayfa",
+        "n11.com": "pg",
+        "akakce.com": "p",
+        "amazon.com.tr": "page"
+    }
+}

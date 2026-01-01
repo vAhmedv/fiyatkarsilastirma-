@@ -1,53 +1,22 @@
-# Fiyat Takip v6.0 - Dependencies
-# Updated to match installed versions (Dec 2024)
+# Fiyat Takip v8.0 Dependencies
+# Core
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+jinja2>=3.1.2
 
-# ==========================================
-# CORE DEPENDENCIES (Required)
-# ==========================================
+# Database (Async)
+sqlmodel>=0.0.14
+sqlalchemy[asyncio]>=2.0.25
+aiosqlite>=0.19.0
 
-# Web Framework
-fastapi==0.124.0
-uvicorn[standard]==0.38.0
+# Scraping
+playwright>=1.41.0
 
-# Database ORM
-sqlmodel==0.0.27
-
-# Web Scraping & Automation
-playwright==1.56.0
-
-# Templating Engine
-jinja2==3.1.6
-
-# File Upload Forms
-python-multipart==0.0.20
-
-# Background Task Scheduler
-apscheduler==3.11.1
+# Scheduling
+apscheduler>=3.10.4
 
 # Logging
-colorlog==6.8.2
+colorlog>=6.8.0
 
-# ==========================================
-# OPTIONAL DEPENDENCIES (Not actively used)
-# ==========================================
-# requests==2.31.0      # Not used, can be removed
-# aiofiles==23.2.1      # Not used, can be removed
-
-# ==========================================
-# INSTALLATION INSTRUCTIONS
-# ==========================================
-# 1. Install Python packages:
-#    pip install -r requirements.txt
-#
-# 2. Install Playwright browsers (REQUIRED):
-#    playwright install chromium
-#
-# 3. Verify installation:
-#    python -c "import playwright; print('Playwright OK')"
-#
-# ==========================================
-# COMPATIBILITY
-# ==========================================
-# Tested on: Python 3.14.2
-# OS: Windows 11
-# All packages compatible with Python 3.10+
+# HTTP Client (for verification)
+httpx>=0.26.0

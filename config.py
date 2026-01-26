@@ -24,7 +24,7 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", "5"))
 MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "20"))
 
 # Database
-DATABASE_URL = "sqlite:///prices.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///prices.db")
 
 # User Agents
 USER_AGENTS = [

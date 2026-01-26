@@ -9,15 +9,13 @@ from sqlalchemy import text
 from contextlib import asynccontextmanager
 import logging
 
-logger = logging.getLogger("FiyatTakip.Database")
+from config import DATABASE_URL
 
-# Async SQLite connection
-SQLITE_FILE = "prices.db"
-SQLITE_URL = f"sqlite+aiosqlite:///{SQLITE_FILE}"
+logger = logging.getLogger("FiyatTakip.Database")
 
 # Create async engine (aiosqlite handles thread safety internally)
 engine = create_async_engine(
-    SQLITE_URL,
+    DATABASE_URL,
     echo=False,
     future=True
 )

@@ -169,7 +169,7 @@ def is_ip_blocked(ip_str: str) -> bool:
         return False
 
 
-def validate_url(url: str) -> tuple[bool, str]:
+async def validate_url(url: str) -> tuple[bool, str]:
     """Validate URL with SSRF protection."""
     if not url or not url.strip():
         return False, "URL boş olamaz"
@@ -195,7 +195,7 @@ def validate_url(url: str) -> tuple[bool, str]:
         
         # SSRF Protection: Resolve and check IP
         try:
-            ip = socket.gethostbyname(domain)
+            ip = await asyncio.to_thread(socket.gethostbyname, domain)
             if is_ip_blocked(ip):
                 return False, "Bu URL'e erişim engellendi (güvenlik)"
         except socket.gaierror:
@@ -612,7 +612,7 @@ async def add_product(
     session: AsyncSession = Depends(get_session)
 ):
     """Add a new product or category URL."""
-    is_valid, msg = validate_url(url)
+    is_valid, msg = await validate_url(url)
     if not is_valid:
         raise HTTPException(status_code=400, detail=msg)
     

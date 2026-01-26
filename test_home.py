@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 """Test the home endpoint logic directly to capture any exceptions."""
+import asyncio
 import traceback
-from sqlmodel import Session, select, func
-from database import engine
+import pytest
+from sqlmodel import select, func
+from database import async_session_factory
 from models import Product, ProductStatus, PriceHistory
 from config import ITEMS_PER_PAGE
 from jinja2 import Environment, FileSystemLoader
 import json
 
-def test_home():
+@pytest.mark.asyncio
+async def test_home():
     print("Testing home endpoint logic...")
     
     try:
         page = 1
         offset = (page - 1) * ITEMS_PER_PAGE
         
-        with Session(engine) as session:
+        async with async_session_factory() as session:
             print(f"  1. ITEMS_PER_PAGE: {ITEMS_PER_PAGE}")
             
             # Query
@@ -25,21 +28,21 @@ def test_home():
             
             # Total count
             total_query = select(func.count()).select_from(Product).where(Product.status == ProductStatus.ACTIVE)
-            total = session.exec(total_query).one()
+            total = (await session.exec(total_query)).one()
             print(f"  2. Total count: {total}")
             
             # Products
-            products = session.exec(query.offset(offset).limit(ITEMS_PER_PAGE)).all()
+            products = (await session.exec(query.offset(offset).limit(ITEMS_PER_PAGE))).all()
             print(f"  3. Products fetched: {len(products)}")
             
             # Discounts
-            discounts = session.exec(
+            discounts = (await session.exec(
                 select(func.count()).select_from(Product).where(
                     Product.status == ProductStatus.ACTIVE,
                     Product.current_price > 0,
                     Product.current_price < Product.lowest_price
                 )
-            ).one()
+            )).one()
             print(f"  4. Discounts: {discounts}")
             
             # Page info
@@ -77,4 +80,4 @@ def test_home():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    test_home()
+    asyncio.run(test_home())

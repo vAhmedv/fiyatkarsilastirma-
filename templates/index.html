@@ -310,11 +310,11 @@
                         <div class="flex items-center gap-2">
                             <span class="font-bold text-lg text-white">{{ "{:,.2f}".format(p.current_price) }}</span>
                             <span class="text-xs text-slate-500">TL</span>
-                            {% if p.current_price < p.lowest_price %} <span class="text-success text-sm"
-                                title="En düşük fiyat!">↓</span>
-                                {% elif p.current_price > p.lowest_price * 1.05 %}
-                                <span class="text-danger text-sm" title="Fiyat artmış">↑</span>
-                                {% endif %}
+                            {% if p.previous_price > 0 and p.current_price < p.previous_price %}
+                            <span class="text-success text-sm" title="Son fiyata göre düştü">↓</span>
+                            {% elif p.previous_price > 0 and p.current_price > p.previous_price %}
+                            <span class="text-danger text-sm" title="Son fiyata göre yükseldi">↑</span>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="text-[10px] text-slate-500 mt-4 flex justify-between">

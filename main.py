@@ -505,24 +505,54 @@ except Exception as e:
 async def home(
     request: Request,
     page: int = Query(1, ge=1),
+    status: str = Query("all"),
     session: AsyncSession = Depends(get_session)
 ):
     """Main dashboard."""
     offset = (page - 1) * ITEMS_PER_PAGE
-    
+
+    status_filter = status.lower()
+    status_map = {
+        "all": None,
+        "active": ProductStatus.ACTIVE,
+        "pending": ProductStatus.PENDING,
+        "error": ProductStatus.ERROR,
+    }
+    if status_filter not in status_map:
+        raise HTTPException(status_code=400, detail="Geçersiz durum filtresi")
+
     # Get products
-    query = select(Product).where(
-        Product.status == ProductStatus.ACTIVE
-    ).order_by(Product.is_favorite.desc(), Product.last_checked.desc())
+    query = select(Product)
+    if status_map[status_filter]:
+        query = query.where(Product.status == status_map[status_filter])
+    query = query.order_by(Product.is_favorite.desc(), Product.last_checked.desc())
     
     result = await session.execute(query.offset(offset).limit(ITEMS_PER_PAGE))
     products = result.scalars().all()
     
     # Get counts
-    total_result = await session.execute(
+    total_stmt = select(func.count()).select_from(Product)
+    if status_map[status_filter]:
+        total_stmt = total_stmt.where(Product.status == status_map[status_filter])
+    total_result = await session.execute(total_stmt)
+    total = total_result.scalar() or 0
+
+    count_all = await session.execute(select(func.count()).select_from(Product))
+    count_active = await session.execute(
         select(func.count()).select_from(Product).where(Product.status == ProductStatus.ACTIVE)
     )
-    total = total_result.scalar() or 0
+    count_pending = await session.execute(
+        select(func.count()).select_from(Product).where(Product.status == ProductStatus.PENDING)
+    )
+    count_error = await session.execute(
+        select(func.count()).select_from(Product).where(Product.status == ProductStatus.ERROR)
+    )
+    status_counts = {
+        "all": count_all.scalar() or 0,
+        "active": count_active.scalar() or 0,
+        "pending": count_pending.scalar() or 0,
+        "error": count_error.scalar() or 0,
+    }
     
     discounts_result = await session.execute(
         select(func.count()).select_from(Product).where(
@@ -546,7 +576,9 @@ async def home(
         "current_page": page,
         "total_pages": total_pages,
         "items_per_page": ITEMS_PER_PAGE,
-        "product_names_json": product_names
+        "product_names_json": product_names,
+        "status_filter": status_filter,
+        "status_counts": status_counts
     })
 
 

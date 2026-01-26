@@ -249,10 +249,34 @@ async def extract_product_info(page: Page, url: str) -> ScrapedData:
                 try:
                     el = await page.query_selector(s)
                     if el:
-                        src = await el.get_attribute("src")
-                        if src:
-                            data.image_url = src
+                        image_attrs = [
+                            "src",
+                            "data-src",
+                            "data-original",
+                            "data-lazy",
+                            "data-lazy-src",
+                            "data-srcset",
+                            "srcset"
+                        ]
+                        for attr in image_attrs:
+                            src = await el.get_attribute(attr)
+                            if src:
+                                if attr in ("data-srcset", "srcset"):
+                                    src = src.split(",")[0].strip().split(" ")[0]
+                                data.image_url = src
+                                break
+                        if data.image_url:
                             break
+                        style = await el.get_attribute("style")
+                        if style:
+                            match = re.search(
+                                r'background-image\s*:\s*url\((?P<quote>["\']?)(?P<url>.+?)\1\)',
+                                style,
+                                flags=re.IGNORECASE
+                            )
+                            if match:
+                                data.image_url = match.group("url")
+                                break
                 except Exception as e:
                     logger.debug(f"Image selector '{s}' failed: {e}")
     

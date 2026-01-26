@@ -21,6 +21,7 @@ ITEMS_PER_PAGE = int(os.getenv("ITEMS_PER_PAGE", "24"))
 # Browser
 PAGE_TIMEOUT = int(os.getenv("PAGE_TIMEOUT", "15000"))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "5"))
+MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "20"))
 
 # Database
 DATABASE_URL = "sqlite:///prices.db"

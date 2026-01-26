@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, Page, BrowserContext, Route, Request
+from config import MAX_CONCURRENCY, PAGE_TIMEOUT, USER_AGENTS
 
 logger = logging.getLogger("FiyatTakip.Scraper")
 
@@ -39,15 +40,7 @@ PRODUCT_URL_PATTERNS = {k: re.compile(v) for k, v in _CONFIG.get("product_url_pa
 PAGINATION_PARAMS = _CONFIG.get("pagination_params", {})
 
 # Constants
-MAX_CONCURRENCY = 20
-PAGE_TIMEOUT = 15000
 DEFAULT_IMAGE_URL = "https://via.placeholder.com/200x200?text=Resim+Yok"
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
-]
 
 
 @dataclass

@@ -456,8 +456,10 @@ async def get_products_batch(urls: List[str], batch_size: int = 20) -> List[Dict
     manager = get_manager()
     context = await manager.get_context()
     
-    # Use semaphore to limit concurrency
-    sem = asyncio.Semaphore(MAX_CONCURRENCY)
+    effective_batch_size = max(1, min(batch_size, MAX_CONCURRENCY))
+    
+    # Use semaphore to limit concurrency per chunk
+    sem = asyncio.Semaphore(effective_batch_size)
     
     async def bound_scrape(url: str) -> Dict[str, Any]:
         async with sem:
@@ -471,23 +473,27 @@ async def get_products_batch(urls: List[str], batch_size: int = 20) -> List[Dict
                 "error_message": d.error_message
             }
     
-    results = await asyncio.gather(*[bound_scrape(u) for u in urls], return_exceptions=True)
+    processed: List[Dict[str, Any]] = []
     
-    # Handle any exceptions in results
-    processed = []
-    for i, r in enumerate(results):
-        if isinstance(r, Exception):
-            logger.error(f"Batch item failed: {urls[i][:50]} - {r}")
-            processed.append({
-                "url": urls[i],
-                "name": "",
-                "price": 0.0,
-                "image_url": "",
-                "is_valid": False,
-                "error_message": str(r)
-            })
-        else:
-            processed.append(r)
+    for chunk_start in range(0, len(urls), effective_batch_size):
+        chunk = urls[chunk_start:chunk_start + effective_batch_size]
+        results = await asyncio.gather(*[bound_scrape(u) for u in chunk], return_exceptions=True)
+        
+        # Handle any exceptions in results
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                url = chunk[i]
+                logger.error(f"Batch item failed: {url[:50]} - {r}")
+                processed.append({
+                    "url": url,
+                    "name": "",
+                    "price": 0.0,
+                    "image_url": "",
+                    "is_valid": False,
+                    "error_message": str(r)
+                })
+            else:
+                processed.append(r)
     
     return processed
 

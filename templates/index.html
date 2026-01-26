@@ -223,6 +223,23 @@
             </div>
         </div>
 
+        <!-- STATUS TABS -->
+        <div class="flex flex-wrap gap-2 mb-6">
+            {% set tabs = [
+                ('all', 'Tümü'),
+                ('active', 'Aktif'),
+                ('pending', 'Bekleyen'),
+                ('error', 'Hatalı')
+            ] %}
+            {% for key, label in tabs %}
+            <a href="/?status={{ key }}"
+                class="px-4 py-2 rounded-full border text-sm transition flex items-center gap-2 {% if status_filter == key %}bg-primary text-white border-primary{% else %}bg-surface border-border text-slate-400 hover:text-white hover:border-slate-500{% endif %}">
+                <span>{{ label }}</span>
+                <span class="text-xs bg-slate-900/60 px-2 py-0.5 rounded-full">{{ status_counts[key] }}</span>
+            </a>
+            {% endfor %}
+        </div>
+
         <!-- PRODUCT GRID -->
         <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {% if products|length == 0 %}
@@ -331,7 +348,7 @@
         {% if total_pages > 1 %}
         <div class="flex justify-center items-center gap-2 mt-10 mb-6">
             {% if current_page > 1 %}
-            <a href="/?page={{ current_page - 1 }}"
+            <a href="/?page={{ current_page - 1 }}&status={{ status_filter }}"
                 class="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-slate-700 transition">
                 &larr; Önceki
             </a>
@@ -342,7 +359,7 @@
                 {% if page_num == current_page %}
                 <span class="px-4 py-2 bg-primary text-white rounded-lg">{{ page_num }}</span>
                 {% elif page_num == 1 or page_num == total_pages or (page_num >= current_page - 2 and page_num <=
-                    current_page + 2) %} <a href="/?page={{ page_num }}"
+                    current_page + 2) %} <a href="/?page={{ page_num }}&status={{ status_filter }}"
                     class="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-slate-700 transition">{{
                     page_num }}</a>
                     {% elif page_num == current_page - 3 or page_num == current_page + 3 %}
@@ -351,7 +368,7 @@
                     {% endfor %}
             </div>
 
-            {% if current_page < total_pages %} <a href="/?page={{ current_page + 1 }}"
+            {% if current_page < total_pages %} <a href="/?page={{ current_page + 1 }}&status={{ status_filter }}"
                 class="px-4 py-2 bg-surface border border-border rounded-lg hover:bg-slate-700 transition">
                 Sonraki &rarr;
                 </a>

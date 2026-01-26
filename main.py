@@ -261,6 +261,26 @@ async def process_bulk_list(urls: List[str], is_drain_mode: bool = False):
                 break
             
             batch_urls = urls[batch_start:batch_start + BATCH_SIZE]
+
+            async with get_db_context() as session:
+                result = await session.execute(
+                    select(Product).where(Product.url.in_(batch_urls))
+                )
+                existing_products = {product.url: product for product in result.scalars().all()}
+
+                for url in batch_urls:
+                    product = existing_products.get(url)
+                    if product:
+                        product.status = ProductStatus.PROCESSING
+                        product.error_message = None
+                    else:
+                        session.add(Product(
+                            url=url,
+                            name="Yeni Ürün",
+                            status=ProductStatus.PROCESSING
+                        ))
+
+                await session.commit()
             
             try:
                 results = await asyncio.wait_for(
@@ -360,6 +380,16 @@ async def update_all_products():
             
             batch = product_list[batch_start:batch_start + BATCH_SIZE]
             batch_urls = [url for _, url in batch]
+            batch_ids = [pid for pid, _ in batch]
+
+            async with get_db_context() as session:
+                result = await session.execute(
+                    select(Product).where(Product.id.in_(batch_ids))
+                )
+                for product in result.scalars().all():
+                    product.status = ProductStatus.PROCESSING
+                    product.error_message = None
+                await session.commit()
             
             try:
                 results = await asyncio.wait_for(
@@ -392,10 +422,12 @@ async def update_all_products():
                             if data.get("name") and ("Yeni" in prod.name or not prod.name):
                                 prod.name = data["name"]
                             prod.status = ProductStatus.ACTIVE
+                            prod.error_message = None
                             prod.last_checked = datetime.now()
                             session.add(PriceHistory(product_id=prod.id, price=price))
                         else:
                             prod.status = ProductStatus.ERROR
+                            prod.error_message = data.get("error_message", "Veri çekilemedi")
                             prod.last_checked = datetime.now()
                         
                         if data.get("image_url"):

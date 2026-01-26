@@ -289,6 +289,8 @@ async def process_bulk_list(urls: List[str], is_drain_mode: bool = False):
                         price = data.get("price", 0.0)
                         
                         if data.get("is_valid") and price > 0:
+                            if prod.current_price > 0:
+                                prod.previous_price = prod.current_price
                             prod.current_price = price
                             if prod.lowest_price == 0 or price < prod.lowest_price:
                                 prod.lowest_price = price
@@ -382,6 +384,8 @@ async def update_all_products():
                         price = data.get("price", 0.0)
                         
                         if data.get("is_valid") and price > 0:
+                            if prod.current_price > 0:
+                                prod.previous_price = prod.current_price
                             prod.current_price = price
                             if prod.lowest_price == 0 or price < prod.lowest_price:
                                 prod.lowest_price = price
@@ -483,7 +487,8 @@ async def home(
         select(func.count()).select_from(Product).where(
             Product.status == ProductStatus.ACTIVE,
             Product.current_price > 0,
-            Product.current_price < Product.lowest_price
+            Product.previous_price > 0,
+            Product.current_price < Product.previous_price
         )
     )
     discounts = discounts_result.scalar() or 0

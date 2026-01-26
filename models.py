@@ -22,6 +22,7 @@ class Product(SQLModel, table=True):
     name: str
     url: str
     current_price: float = 0.0
+    previous_price: float = 0.0
     lowest_price: float = 0.0
     last_checked: datetime = Field(default_factory=datetime.now)
     image_url: Optional[str] = None

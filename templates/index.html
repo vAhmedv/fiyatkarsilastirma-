@@ -223,6 +223,24 @@
             </div>
         </div>
 
+        <!-- LIVE LOG STREAM -->
+        <section class="bg-surface border border-border rounded-xl shadow-sm p-4 md:p-6 mb-6 md:mb-10">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <div class="text-xs text-slate-500 uppercase">Canlı Loglar</div>
+                    <div id="logStatus" class="text-sm text-slate-400">Bağlanıyor...</div>
+                </div>
+                <button type="button" id="clearLogsBtn"
+                    class="text-xs text-slate-400 hover:text-white border border-border px-3 py-1 rounded-md">
+                    Temizle
+                </button>
+            </div>
+            <div id="logStream"
+                class="bg-slate-900/60 border border-border rounded-lg h-48 md:h-64 overflow-y-auto px-4 py-3 text-xs md:text-sm font-mono text-slate-300 space-y-1">
+                <div class="text-slate-500">Log akışı burada görünecek.</div>
+            </div>
+        </section>
+
         <!-- PRODUCT GRID -->
         <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {% if products|length == 0 %}
@@ -392,6 +410,12 @@
         let chart = null;
         // Parse product names from JSON block
         const productNames = JSON.parse(document.getElementById('productNamesData').textContent);
+        const logContainer = document.getElementById('logStream');
+        const logStatus = document.getElementById('logStatus');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const MAX_LOG_LINES = 200;
+        let logEventSource = null;
+        let reconnectTimer = null;
 
         // === MOBILE MENU ===
         function toggleMobileMenu() {
@@ -507,6 +531,74 @@
             setTimeout(function () { toast.remove(); }, 4000);
         }
 
+        // === LIVE LOG STREAM ===
+        function appendLogLine(text) {
+            if (!logContainer) return;
+
+            const atBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight < 30;
+            const line = document.createElement('div');
+            line.textContent = text;
+            logContainer.appendChild(line);
+
+            const lines = logContainer.querySelectorAll('div');
+            if (lines.length > MAX_LOG_LINES) {
+                lines[0].remove();
+            }
+
+            if (atBottom) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        }
+
+        function setLogStatus(text, statusClass) {
+            if (!logStatus) return;
+            logStatus.textContent = text;
+            logStatus.className = 'text-sm ' + statusClass;
+        }
+
+        function connectLogStream() {
+            if (!logContainer) return;
+
+            if (logEventSource) {
+                logEventSource.close();
+                logEventSource = null;
+            }
+
+            setLogStatus('Bağlanıyor...', 'text-slate-400');
+            logEventSource = new EventSource('/stream-logs');
+
+            logEventSource.onopen = function () {
+                setLogStatus('Bağlı', 'text-success');
+            };
+
+            logEventSource.onmessage = function (event) {
+                if (event.data) {
+                    appendLogLine(event.data);
+                }
+            };
+
+            logEventSource.onerror = function () {
+                setLogStatus('Bağlantı koptu, yeniden bağlanıyor...', 'text-warning');
+                if (logEventSource) {
+                    logEventSource.close();
+                    logEventSource = null;
+                }
+                if (!reconnectTimer) {
+                    reconnectTimer = setTimeout(function () {
+                        reconnectTimer = null;
+                        connectLogStream();
+                    }, 2000);
+                }
+            };
+        }
+
+        if (clearLogsBtn) {
+            clearLogsBtn.addEventListener('click', function () {
+                if (!logContainer) return;
+                logContainer.innerHTML = '<div class="text-slate-500">Log akışı temizlendi.</div>';
+            });
+        }
+
         // === ADD FORM (AJAX) ===
         document.getElementById('addForm').addEventListener('submit', async function (e) {
             e.preventDefault();
@@ -563,6 +655,7 @@
                     }
                 });
             });
+            connectLogStream();
         });
     </script>
 </body>

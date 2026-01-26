@@ -346,7 +346,16 @@ async def update_all_products():
     try:
         async with get_db_context() as session:
             result = await session.execute(
-                select(Product.id, Product.url).where(Product.status != "disabled")
+                select(Product.id, Product.url).where(
+                    Product.status.in_(
+                        [
+                            ProductStatus.ACTIVE,
+                            ProductStatus.PROCESSING,
+                            ProductStatus.ERROR,
+                            ProductStatus.PENDING,
+                        ]
+                    )
+                )
             )
             products = result.fetchall()
         
